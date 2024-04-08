@@ -1,10 +1,11 @@
 import pygame, time
 
 class Engine:
-  def __init__(self, largura, altura, base_blocos):
+  def __init__(self, largura, altura, base_blocos, altura_blocos):
     self.largura = largura
     self.altura = altura
     self.base_blocos = base_blocos
+    self.altura_blocos = altura_blocos
     janela, fonte_texto = self.criar_janela()
     self.janela = janela
     self.fonte_texto = fonte_texto
@@ -25,8 +26,7 @@ class Engine:
     time.sleep(5)
 
   def desenhar_bloco(self, vetor2, peca):
-    altura_blocos = 16
-    block = pygame.Rect((self.largura/self.base_blocos)*vetor2[1], (self.altura/altura_blocos)*vetor2[0], (self.largura/self.base_blocos), (self.altura/altura_blocos))
+    block = pygame.Rect((self.largura/self.base_blocos)*vetor2[1], (self.altura/self.altura_blocos)*vetor2[0], (self.largura/self.base_blocos), (self.altura/self.altura_blocos))
     match peca:
       case 1: pygame.draw.rect(self.janela, [0,255,10],   block)
       case 2: pygame.draw.rect(self.janela, [255,0,0],    block)
@@ -43,7 +43,6 @@ class Engine:
     self.janela.fill([25,25,25])
 
   def remover_bloco(self, vetor2):
-    altura_blocos = 16
-    block = pygame.Rect((self.largura/self.base_blocos)*vetor2[1], (self.altura/altura_blocos)*vetor2[0], (self.largura/self.base_blocos), (self.altura/altura_blocos))
+    block = pygame.Rect((self.largura/self.base_blocos)*vetor2[1], (self.altura/self.altura_blocos)*vetor2[0], (self.largura/self.base_blocos), (self.altura/self.altura_blocos))
     pygame.draw.rect(self.janela, [25,25,25], block)
     pygame.display.update()
