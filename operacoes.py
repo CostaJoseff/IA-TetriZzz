@@ -1,6 +1,3 @@
-import numpy as np
-import os
-
 def rotacionar(matriz):
     resultado = []
     for c in range(len(matriz[0])):
@@ -63,3 +60,15 @@ def matriz_to_string(matriz):
         resultado += borda_matriz + '\n'
 
     print(resultado)
+
+def binarizar(vetor):
+    for i in range(len(vetor)):
+        vetor[i] = -1 if vetor[i] == -1 else (0 if vetor[i] == 0 else vetor[i])
+    return vetor
+
+def media(vetor):
+    somatorio = 0
+    for valor in vetor:
+        somatorio += valor
+
+    return somatorio
