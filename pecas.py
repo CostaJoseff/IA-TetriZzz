@@ -1,116 +1,102 @@
-import peca_i, peca_l, peca_o, peca_s, peca_t, peca_s2, peca_j
+import random as rd
+from operacoes import rotacionar
 
-def desenhar_peca(mapa, linha, coluna, id_peca, posicao):
-    if id_peca == 1:
-        return peca_t.posicionar(mapa, linha, coluna, posicao)
-    if id_peca == 2:
-        return peca_o.posicionar(mapa, linha, coluna)
-    if id_peca == 3:
-        return peca_l.posicionar(mapa, linha, coluna, posicao)
-    if id_peca == 4:
-        return peca_i.posicionar(mapa, linha, coluna, posicao)
-    if id_peca == 5:
-        return peca_s.posicionar(mapa, linha, coluna, posicao)
-    if id_peca == 6:
-        return peca_s2.posicionar(mapa, linha, coluna, posicao)
-    if id_peca == 7:
-        return peca_j.posicionar(mapa, linha, coluna, posicao)
-
-def remover_peca(mapa, linha, coluna, id_peca, posicao):
-    if id_peca == 1:
-        peca_t.remover(mapa, linha, coluna, posicao)
-    elif id_peca == 2:
-        peca_o.remover(mapa, linha, coluna)
-    elif id_peca == 3:
-        peca_l.remover(mapa, linha, coluna, posicao)
-    elif id_peca == 4:
-        peca_i.remover(mapa, linha, coluna, posicao)
-    elif id_peca == 5:
-        peca_s.remover(mapa, linha, coluna, posicao)
-    elif id_peca == 6:
-        peca_s2.remover(mapa, linha, coluna, posicao)
-    elif id_peca == 7:
-        peca_j.remover(mapa, linha, coluna, posicao)
-    
-
-def rotacionar_peca(mapa, linha, coluna, id_peca, posicao_atual):
-    if id_peca == 1:
-        return peca_t.rotacionar(mapa, linha, coluna, posicao_atual)
-    if id_peca == 2:
-        return (linha, coluna, posicao_atual)
-    if id_peca == 3:
-        return peca_l.rotacionar(mapa, linha, coluna, posicao_atual)
-    if id_peca == 4:
-        return peca_i.rotacionar(mapa, linha, coluna, posicao_atual)
-    if id_peca == 5:
-        return peca_s.rotacionar(mapa, linha, coluna, posicao_atual)
-    if id_peca == 6:
-        return peca_s2.rotacionar(mapa, linha, coluna, posicao_atual)
-    if id_peca == 7:
-        return peca_j.rotacionar(mapa, linha, coluna, posicao_atual)
-
-def mover_baixo(mapa, linha_atual, coluna, id_peca, posicao):
-    remover_peca(mapa, linha_atual, coluna, id_peca, posicao)
-    if desenhar_peca(mapa, linha_atual+1, coluna, id_peca, posicao) == -1:
-        desenhar_peca(mapa, linha_atual, coluna, id_peca, posicao)
-        return (-1, coluna, posicao)
-    return (linha_atual + 1, coluna, posicao)
+id_i = 1
+id_j = 2
+id_l = 3
+id_o = 4
+id_s = 5
+id_z = 6
+id_t = 7
 
 
-def mover_esquerda(mapa, linha, coluna_atual, id_peca, posicao):
-    remover_peca(mapa, linha, coluna_atual, id_peca, posicao)
-    if desenhar_peca(mapa, linha, coluna_atual-1, id_peca, posicao) == -1:
-        desenhar_peca(mapa, linha, coluna_atual, id_peca, posicao)
-        return (linha, -1, posicao)
-    return (linha, coluna_atual - 1, posicao)
+def gerar_pecas ():
+  peca_i = [[0, 1, 0, 0],
+            [0, 1, 0, 0],
+            [0, 1, 0, 0],
+            [0, 1, 0, 0]]
 
-def mover_direita(mapa, linha, coluna_atual, id_peca, posicao):
-    remover_peca(mapa, linha, coluna_atual, id_peca, posicao)
-    if desenhar_peca(mapa, linha, coluna_atual+1, id_peca, posicao) == -1:
-        desenhar_peca(mapa, linha, coluna_atual, id_peca, posicao)
-        return (linha, -1, posicao)
-    return (linha, coluna_atual + 1, posicao)
+  peca_j = [[0, 1, 0],
+            [0, 1, 0],
+            [1, 1, 0]]
 
-def espaco_esquerda(mapa, linha, coluna, id_peca, posicao):
-    match id_peca:
-        case 1:
-            return peca_t.espaco_esquerda(mapa, linha, coluna, posicao)
-        case 2:
-            return peca_o.espaco_esquerda(mapa, linha, coluna)
-        case 3:
-            return peca_l.espaco_esquerda(mapa, linha, coluna, posicao)
-        case 4:
-            return peca_i.espaco_esquerda(mapa, linha, coluna, posicao)
-        case 5:
-            return peca_s.espaco_esquerda(mapa, linha, coluna, posicao)
-        case 6:
-            return peca_s2.espaco_esquerda(mapa, linha, coluna, posicao)
-        case 7:
-            return peca_j.espaco_esquerda(mapa, linha, coluna, posicao)
+  peca_l = [[0, 1, 0],
+            [0, 1, 0],
+            [0, 1, 1]]
 
-def espaco_direita(mapa, linha, coluna, id_peca, posicao):
-    match id_peca:
-        case 1:
-            return peca_t.espaco_direita(mapa, linha, coluna, posicao)
-        case 2:
-            return peca_o.espaco_direita(mapa, linha, coluna)
-        case 3:
-            return peca_l.espaco_direita(mapa, linha, coluna, posicao)
-        case 4:
-            return peca_i.espaco_direita(mapa, linha, coluna, posicao)
-        case 5:
-            return peca_s.espaco_direita(mapa, linha, coluna, posicao)
-        case 6:
-            return peca_s2.espaco_direita(mapa, linha, coluna, posicao)
-        case 7:
-            return peca_j.espaco_direita(mapa, linha, coluna, posicao)
+  peca_o = [[1, 1],
+            [1, 1]]
 
-def obter_coordenadas(linha, coluna, id_peca, posicao):
-    match id_peca:
-        case 1: return peca_t.obter_coordenadas(linha, coluna, posicao)
-        case 2: return peca_o.obter_coordenadas(linha, coluna, posicao)
-        case 3: return peca_l.obter_coordenadas(linha, coluna, posicao)
-        case 4: return peca_i.obter_coordenadas(linha, coluna, posicao)
-        case 5: return peca_s.obter_coordenadas(linha, coluna, posicao)
-        case 6: return peca_s2.obter_coordenadas(linha, coluna, posicao)
-        case 7: return peca_j.obter_coordenadas(linha, coluna, posicao)
+  peca_s = [[0, 1, 1],
+            [1, 1, 0],
+            [0, 0, 0]]
+
+  peca_z = [[1, 1, 0],
+            [0, 1, 1],
+            [0, 0, 0]]
+
+  peca_t = [[0, 0, 0],
+            [1, 1, 1],
+            [0, 1, 0]]
+  return [peca_i, peca_j, peca_l, peca_o, peca_s, peca_z, peca_t]
+
+
+class Pecas:
+
+  def __init__ (self):
+    self.rotacao = rd.randint(0, 3)
+    self.pecas = gerar_pecas()
+    self.id = rd.randint(1, 7)
+    self.peca_atual = self.pecas[self.id - 1]
+    self.rotacoes = 0
+
+    for _ in range(self.rotacao):
+      self.peca_atual = rotacionar(self.peca_atual)
+
+  def rotacionar (self):
+    self.peca_atual = rotacionar(self.peca_atual)
+    self.rotacao = (self.rotacao + 1) % 4
+    self.rotacoes += 1
+
+  def nova_peca (self):
+    self.id = rd.randint(1, 7)
+    self.peca_atual = self.pecas[self.id - 1]
+    self.rotacao = rd.randint(0, 3)
+    self.rotacoes = 0
+    for _ in range(self.rotacao):
+      self.peca_atual = rotacionar(self.peca_atual)
+
+  def altura (self):
+    return len(self.peca_atual)
+
+  def largura (self):
+    return len(self.peca_atual[0])
+
+  def coordenadas (self):
+    coordenadas = []
+    for l in range(self.altura() - 1, -1, -1):
+      for c in range(self.largura()):
+        if self.peca_atual[l][c] != 0:
+          coordenadas.append([l - self.altura() + 1, c])
+
+    return coordenadas
+
+  def maior_bloco (self):
+    for l in range(len(self.peca_atual)):
+      for c in range(len(self.peca_atual[0])):
+        if self.peca_atual[l][c] != 0: return l
+
+  def alturas (self):
+    if self.id == id_i:
+      pass
+
+    alturas = []
+    for c in range(len(self.peca_atual[0])):
+      for l in range(len(self.peca_atual)):
+        if self.peca_atual[l][c] != 0:
+          alturas.append(self.altura()-l)
+          break
+        if l == len(self.peca_atual) - 1:
+          alturas.append(0)
+          break
+    return alturas
