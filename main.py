@@ -1,17 +1,17 @@
 import sys
 import threading
-from valores import punicao_perdeu
-
 import numpy as np
 import pygame
 from tetriZzz_Otimizado import TetriZzz_Otimizado
 import tensorflow as tf
+import keras
 
 
-def criar_janela(largura, altura):
+def criar_janela():
   pygame.init()
+  info = pygame.display.Info()
   pygame.display.set_caption("TetriZzz")
-  return pygame.display.set_mode([largura, altura])
+  return pygame.display.set_mode([info.current_w, info.current_h])
 
 
 # janela = criar_janela(800, 600)
@@ -35,15 +35,11 @@ def criar_janela(largura, altura):
 #
 #   print(recompensa)
 
-
-aaa = 350
-janela = criar_janela(800, aaa)
-
-def treinar_modelo(modelo, jogo, max_steps_por_epsod, resultados):
+def treinar_modelo(modelo, jogo, resultados):
   recompensa_total = 0
-  ultimas_jogadas = [-1, -1, -1, -1]
   jogo.redesenhar_tudo()
   passo = 0
+  print("thread executando 1")
   while 1:
     recompensa = 0
     for event in pygame.event.get():
@@ -53,6 +49,7 @@ def treinar_modelo(modelo, jogo, max_steps_por_epsod, resultados):
       recompensa += jogo.acao(2)
       passo = 0
 
+    print("thread executando 2")
     entrada = ultimas_jogadas.copy()
     entrada.append(jogo.tabuleiro.peca_atual.id)
     entrada.append(jogo.tabuleiro.peca_atual.rotacao)
@@ -61,6 +58,8 @@ def treinar_modelo(modelo, jogo, max_steps_por_epsod, resultados):
     acao = tf.argmax(acoes, axis=1).numpy()[0]
     recompensa += jogo.acao(acao)
     recompensa_total += recompensa
+
+    print(acao)
 
     for i in range(len(ultimas_jogadas)-1, 0, -1):
       ultimas_jogadas[i] = ultimas_jogadas[i-1]
@@ -80,15 +79,25 @@ def treinar_modelo(modelo, jogo, max_steps_por_epsod, resultados):
 
   resultados.append((modelo, jogo, recompensa_total))
 
-def escolher_2_melhores(resultados):
-  melhores_2 = []
+
+def gerar_modelo_alterado():
+  inputs = tf.keras.layers.Input(shape=(entrada))
+  modelo = tf.keras.layers.Flatten()(inputs)
+  modelo = tf.keras.layers.Dense(64, activation='relu')(modelo)
+  out = tf.keras.layers.Dense(saida, activation='sigmoid', dtype=tf.float16)(modelo)
+  modelo = tf.keras.models.Model(inputs, out)
+  modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['loss'])
+
+  return modelo
+
+def escolher_melhores(resultados):
+  melhores = []
   for modelo, jogo, recompensa in resultados:
-    print(recompensa, end=" || ")
-    if len(melhores_2) < 1:
-      melhores_2.append((modelo, jogo, recompensa))
+    if len(melhores) < total_escolhidos:
+      melhores.append((modelo, jogo, recompensa))
     else:
       alvo = (None, 0)
-      for modelo_selecionado, jogo_selecionado, recompensa_selecionada in melhores_2:
+      for modelo_selecionado, jogo_selecionado, recompensa_selecionada in melhores:
         if recompensa_selecionada < recompensa:
           if alvo[0] == None:
             alvo = (modelo_selecionado, jogo_selecionado, recompensa_selecionada)
@@ -96,15 +105,18 @@ def escolher_2_melhores(resultados):
             alvo = (modelo_selecionado, jogo_selecionado, recompensa_selecionada)
 
       if alvo[0] != None:
-        melhores_2.remove(alvo)
-        melhores_2.append((modelo, jogo, recompensa))
+        melhores.remove(alvo)
+        melhores.append((modelo, jogo, recompensa))
 
-  print('')
-  return melhores_2
+  print('Melhores: ', end='')
+  for _, _, recompensa in melhores:
+    print(f'{recompensa} : ', end='')
+  print('\n')
+  return melhores
 
-def aplicar_mutacao(modelos, melhores_2):
-  tela = 2
-  for modelo, jogo, _ in melhores_2:
+def aplicar_mutacao(modelos, melhores):
+  tela = 0
+  for modelo, jogo, _ in melhores:
     for i in range(7):
       pesos_da_rede = modelo.get_weights()
       perturbacao = 0.1
@@ -122,52 +134,63 @@ def aplicar_mutacao(modelos, melhores_2):
       novo_modelo = tf.keras.models.Model(inputs, out)
       novo_modelo.set_weights(pesos_perturbados)
       novo_modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-      modelos.append((novo_modelo, TetriZzz_Otimizado(tela * 100, aaa, janela)))
+      jogo = TetriZzz_Otimizado(i * largura_dos_jogos, (i + 1) * largura_dos_jogos, l * altura_dos_jogos, (l + 1) * altura_dos_jogos, janela)
+      modelos.append((novo_modelo, jogo))
       tela += 1
 
 
-def treinar(modelos, num_episodes, max_steps_por_epsod):
+def treinar(modelos, num_episodes):
   for epsodio in range(num_episodes):
     resultados = []
     threads = []
     for modelo, jogo in modelos:
-      thread = threading.Thread(target=treinar_modelo, args=(modelo, jogo, max_steps_por_epsod, resultados))
+      print("threads vão iniciar")
+      thread = threading.Thread(target=treinar_modelo, args=(modelo, jogo, resultados))
       thread.start()
       threads.append(thread)
 
     for thread in threads:
       thread.join()
 
-    melhores_2 = escolher_2_melhores(resultados)
+    print("join")
 
     print(f'Epoca: {epsodio}')
-    print(f'Top: {melhores_2[0][2]}')
-    print("-" * 10)
+    melhores = escolher_melhores(resultados)
 
-    modelos = [(melhores_2[0][0], TetriZzz_Otimizado(100, aaa, janela))]
-    aplicar_mutacao(modelos, melhores_2)
+    jogo = TetriZzz_Otimizado(i * largura_dos_jogos, (i + 1) * largura_dos_jogos, l * altura_dos_jogos, (l + 1) * altura_dos_jogos, janela)
+    modelos = [(melhores[0][0], jogo)]
+    aplicar_mutacao(modelos, melhores)
 
   return modelos
 
+janela = criar_janela()
 saida = 5
-modelos_totais = 8
+modelos_totais = 16
+total_escolhidos = 2
+valor_de_mutacao = 0.2
+ultimas_jogadas = [-1, -1, -1, -1]
+colunas = 8
+linhas = modelos_totais % colunas
+if linhas == 0: linhas = modelos_totais / colunas
+else: linhas = int(modelos_totais / colunas) + 1
+info = pygame.display.Info()
+largura_dos_jogos = info.current_w/colunas
+altura_dos_jogos = info.current_h/linhas
 
+jogo = TetriZzz_Otimizado(0*largura_dos_jogos, (0+1)*largura_dos_jogos, 0*altura_dos_jogos, (0+1)*altura_dos_jogos, janela)
+entrada = ultimas_jogadas.copy()
+entrada.append(jogo.tabuleiro.peca_atual.id)
+entrada.append(jogo.tabuleiro.peca_atual.rotacao)
+entrada = np.append(jogo.tabuleiro.tabuleiro.reshape(-1, 1), np.array(entrada))
+entrada = entrada.shape
 
 modelos = []
-for i in range(modelos_totais):
-  ultimas_jogadas = [-1, -1, -1, -1]
-  jogo = TetriZzz_Otimizado(100*(i+1), aaa, janela)
-  entrada = ultimas_jogadas.copy()
-  entrada.append(jogo.tabuleiro.peca_atual.id)
-  entrada.append(jogo.tabuleiro.peca_atual.rotacao)
-  entrada = np.append(jogo.tabuleiro.tabuleiro.reshape(-1,1), np.array(entrada))
+for l in range(int(linhas)):
+  for i in range(int(colunas)):
+    print(f'x_i {i*largura_dos_jogos} x_f {(i+1)*largura_dos_jogos} y_i {l*altura_dos_jogos} y_f {(l+1)*altura_dos_jogos}')
+    modelo = gerar_modelo_alterado()
+    jogo = TetriZzz_Otimizado(i*largura_dos_jogos, (i+1)*largura_dos_jogos, l*altura_dos_jogos, (l+1)*altura_dos_jogos, janela)
+    modelos.append((modelo, jogo))
+    print(f'Modelo {len(modelos)} criado')
 
-  inputs = tf.keras.layers.Input(shape=(entrada.shape))
-  modelo = tf.keras.layers.Flatten()(inputs)
-  modelo = tf.keras.layers.Dense(64, activation='relu')(modelo)
-  out = tf.keras.layers.Dense(saida, activation='sigmoid', dtype=tf.float16)(modelo)
-  modelo = tf.keras.models.Model(inputs, out)
-  modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['loss'])
-  modelos.append((modelo, jogo))
-
-modelos, jogo = treinar(modelos,10000, 100)
+modelos = treinar(modelos, 100)

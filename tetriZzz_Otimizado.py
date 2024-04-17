@@ -7,14 +7,14 @@ from tabuleiro import Tabuleiro
 from operacoes import matriz_to_string
 
 class TetriZzz_Otimizado:
-  def __init__(self, largura_tela, altura_tela, janela):
+  def __init__(self, x_i, x_f, y_i, y_f, janela):
     self.clock = pygame.time.Clock()
     self.altura_blocos = 16
     self.base_blocos = 10
     self.perdeu = False
 
     self.tabuleiro = Tabuleiro(self.base_blocos, self.altura_blocos)
-    self.engine = engine.Engine(largura_tela, altura_tela, self.base_blocos, self.altura_blocos, janela)
+    self.engine = engine.Engine(x_i, x_f, y_i, y_f, self.base_blocos, self.altura_blocos, janela)
 
   def set_tamanho(self, largura_tela, altura_tela, janela):
     self.engine = engine.Engine(largura_tela, altura_tela, self.base_blocos, self.altura_blocos, janela)
