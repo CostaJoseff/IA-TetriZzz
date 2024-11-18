@@ -29,7 +29,6 @@ class Engine:
     time.sleep(5)
 
   def desenhar_bloco(self, vetor2, peca):
-    pass
     if self.y_i+(self.altura_do_bloco*vetor2[0]) < self.y_i: return
 
     block = pygame.Rect(self.x_i+(self.largura_do_bloco*vetor2[1]), self.y_i+(self.altura_do_bloco*vetor2[0]), self.largura_do_bloco, self.altura_do_bloco)
@@ -41,7 +40,7 @@ class Engine:
       case 5: pygame.draw.rect(self.janela, [255,255,0],  block)
       case 6: pygame.draw.rect(self.janela, [255,100,0],  block)
       case 7: pygame.draw.rect(self.janela, [100,50,255], block)
-      case 8: pygame.draw.rect(self.janela, [0, 250, 250], block)
+      case 8: pygame.draw.rect(self.janela, [0, 50, 0], block)
       case _: pygame.draw.rect(self.janela, [self.random_background, self.random_background, self.random_background], block)
   
   def update(self):

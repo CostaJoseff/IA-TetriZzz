@@ -14,4 +14,4 @@ punicao_alta = -25
 punicao_perdeu = -10
 recompensa_pequena = 1
 recompensa_media = 2
-recompensa_linha_completa = 3
+recompensa_linha_completa = 100

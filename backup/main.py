@@ -39,33 +39,73 @@ def criar_janela():
 #
 #   print(recompensa)
 
-def treinar_bot(bot, jogo: TetriZzz_Otimizado, resultados):
+def treinar_bot(bot, jogo, resultados):
+  recompensa_total = 0
   jogo.redesenhar_tudo()
   passo = 0
-  while passo < 100:
-    pygame.event.pump()
+  while 1:
+    recompensa = 0
+    for event in pygame.event.get():
+      if event.type == pygame.QUIT:
+        return sys.exit()
     if passo % 8 == 0:
-      jogo.acao(2)
+      recompensa += jogo.acao(2)
+      passo = 0
 
-    estado = jogo.tabuleiro.tabuleiro
-    estado = estado[None, ...]
+    estado = ultimas_jogadas.copy()
+    for altura in jogo.tabuleiro.calcular_alturas():
+      estado.append(altura)
+    estado.append(jogo.tabuleiro.peca_atual.id)
+    estado.append(jogo.tabuleiro.peca_atual.rotacao)
+    estado.append(jogo.tabuleiro.linha_atual)
+    estado.append(jogo.tabuleiro.coluna_atual)
 
-    acoes = bot.predict(estado, verbose=0)
+    estado = np.array(estado)
+
+    acoes = bot(np.expand_dims(estado, axis=0))
     acao = tf.argmax(acoes, axis=1).numpy()[0]
-    jogo.acao(acao)
+    recompensa += jogo.acao(acao)
+    recompensa_total += recompensa
+    #print(recompensa)
+
+    for i in range(len(ultimas_jogadas)-1, 0, -1):
+      ultimas_jogadas[i] = ultimas_jogadas[i-1]
+    ultimas_jogadas[0] = acao
+
+    if recompensa != 0:
+      with tf.GradientTape() as tape:
+        acoes = bot(np.expand_dims(estado, axis=0))
+        index = tf.argmax(acoes, axis=1).numpy()[0]
+        valor = tf.gather(acoes, index, axis=1)
+        valor = valor * recompensa
+        loss = tf.reduce_mean(valor)
+      grads = tape.gradient(loss, bot.trainable_variables)
+      bot.optimizer.apply_gradients(zip(grads, bot.trainable_variables))
 
     if jogo.perdeu: break
     passo += 1
 
-  resultados.append((bot, jogo))
+  resultados.append((bot, jogo, recompensa_total))
+
+def gerar_camada_input():
+  entrada = ultimas_jogadas.copy()
+  for altura in jogo.tabuleiro.calcular_alturas():
+    entrada.append(altura)
+  entrada.append(jogo.tabuleiro.peca_atual.id)
+  entrada.append(jogo.tabuleiro.peca_atual.rotacao)
+  entrada.append(jogo.tabuleiro.linha_atual)
+  entrada.append(jogo.tabuleiro.coluna_atual)
+
+  return np.array(entrada)
 
 def gerar_bot():
-  inputs = tf.keras.layers.Input(shape=(25, 18))
-  hidden = tf.keras.layers.Flatten()(inputs)
-  hidden = tf.keras.layers.Dense(9, activation='relu')(hidden)
+  entrada = gerar_camada_input()
+
+  inputs = tf.keras.layers.Input(shape=entrada.shape)
+  hidden = tf.keras.layers.Dense(9, activation='relu')(inputs)
   hidden = tf.keras.layers.Dropout(0.25)(hidden)
   hidden = tf.keras.layers.Dense(5, activation='relu')(hidden)
-  out = tf.keras.layers.Dense(saida, activation='softmax', dtype=tf.float16)(hidden)
+  out = tf.keras.layers.Dense(saida, activation='sigmoid', dtype=tf.float16)(hidden)
 
   bot = tf.keras.models.Model(inputs, out)
   bot.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['loss'])
@@ -76,12 +116,13 @@ def gerar_bot_modificado(bot):
   pesos_da_rede = bot.get_weights()
   pesos_perturbados = [peso + (((-1)**(rd.randint(1, 2)))*np.random.normal(scale=mutacao, size=peso.shape)) for peso in pesos_da_rede]
 
-  inputs = tf.keras.layers.Input(shape=(25, 18))
-  hidden = tf.keras.layers.Flatten()(inputs)
-  hidden = tf.keras.layers.Dense(9, activation='relu')(hidden)
+  entrada = gerar_camada_input()
+
+  inputs = tf.keras.layers.Input(shape=entrada.shape)
+  hidden = tf.keras.layers.Dense(9, activation='relu')(inputs)
   hidden = tf.keras.layers.Dropout(0.25)(hidden)
   hidden = tf.keras.layers.Dense(5, activation='relu')(hidden)
-  out = tf.keras.layers.Dense(saida, activation='softmax', dtype=tf.float16)(hidden)
+  out = tf.keras.layers.Dense(saida, activation='sigmoid', dtype=tf.float16)(hidden)
 
   novo_bot = tf.keras.models.Model(inputs, out)
   novo_bot.set_weights(pesos_perturbados)
@@ -91,9 +132,7 @@ def gerar_bot_modificado(bot):
 
 def escolher_melhores(resultados):
   melhores = []
-  jogo: TetriZzz_Otimizado
-  for bot, jogo in resultados:
-    recompensa = jogo.tabuleiro.pontos
+  for bot, jogo, recompensa in resultados:
     if len(melhores) < total_escolhidos:
       melhores.append((bot, jogo, recompensa))
     else:
@@ -158,10 +197,11 @@ def treinar(bots, num_episodes):
 
 janela = criar_janela()
 saida = 5
-total_de_bots = 8
-total_escolhidos = 2
-mutacao = 0.005
-colunas = 3
+total_de_bots = 32
+total_escolhidos = 1
+mutacao = 0.05
+ultimas_jogadas = [-1, -1, -1, -1]
+colunas = 8
 if total_de_bots < colunas:
   colunas = total_de_bots
 linhas = total_de_bots % colunas
