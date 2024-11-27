@@ -1,20 +1,43 @@
+import math
 import sys
 import threading
+import time
 import numpy as np
 import pygame
 from tetriZzz_Otimizado import TetriZzz_Otimizado
 import tensorflow as tf
 import random as rd
 import os
-from tensorflow.keras import layers, Model
+import torch.nn as nn
+import torch 
+from matplotlib import pyplot as plt
+import cv2
 
+class ModeloBot(nn.Module):
+        def __init__(self):
+            super(ModeloBot, self).__init__()
+            self.fc1 = nn.Linear(25 * 18, 90)  # Flatten + Dense(9)
+            self.fc2 = nn.Linear(90, 512) 
+            self.fc3 = nn.Linear(512, 512)       # Dense(5)
+            self.fc4 = nn.Linear(512, saida)    # Dense(saida)
+            self.dropout = nn.Dropout(0.25)   # Dropout
+        
+        def forward(self, x):
+            x = x.view(1, 25 * 18)           # Flatten
+            x = torch.relu(self.fc1(x))
+            x = self.dropout(x)
+            x = torch.relu(self.fc2(x))
+            x = self.dropout(x)
+            x = torch.relu(self.fc3(x))
+            x = self.fc4(x)
+            return x
 
 def criar_janela():
-  os.environ['SDL_VIDEO_WINDOW_POS'] = '%d,%d' % (900, 50)
+  os.environ['SDL_VIDEO_WINDOW_POS'] = '%d,%d' % (0, 0)
   pygame.init()
   info = pygame.display.Info()
   pygame.display.set_caption("TetriZzz")
-  return pygame.display.set_mode([info.current_w/2, info.current_h])
+  return pygame.display.set_mode([info.current_w-300, info.current_h-500])
 
 
 # janela = criar_janela()
@@ -42,16 +65,19 @@ def criar_janela():
 def treinar_bot(bot, jogo: TetriZzz_Otimizado, resultados):
   jogo.redesenhar_tudo()
   passo = 0
-  while passo < 100:
+  while 1:
     pygame.event.pump()
     if passo % 8 == 0:
       jogo.acao(2)
+      passo = 0
 
     estado = jogo.tabuleiro.tabuleiro
     estado = estado[None, ...]
+    estado = torch.tensor(estado, dtype=torch.float32)
 
-    acoes = bot.predict(estado, verbose=0)
-    acao = tf.argmax(acoes, axis=1).numpy()[0]
+    with torch.no_grad():
+      acoes = bot(estado)
+    acao = torch.argmax(acoes, dim=1).item()
     jogo.acao(acao)
 
     if jogo.perdeu: break
@@ -60,59 +86,48 @@ def treinar_bot(bot, jogo: TetriZzz_Otimizado, resultados):
   resultados.append((bot, jogo))
 
 def gerar_bot():
-  inputs = tf.keras.layers.Input(shape=(25, 18))
-  hidden = tf.keras.layers.Flatten()(inputs)
-  hidden = tf.keras.layers.Dense(9, activation='relu')(hidden)
-  hidden = tf.keras.layers.Dropout(0.25)(hidden)
-  hidden = tf.keras.layers.Dense(5, activation='relu')(hidden)
-  out = tf.keras.layers.Dense(saida, activation='softmax', dtype=tf.float16)(hidden)
-
-  bot = tf.keras.models.Model(inputs, out)
-  bot.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['loss'])
-
-  return bot
+  novo_bot = ModeloBot()
+  return novo_bot
 
 def gerar_bot_modificado(bot):
-  pesos_da_rede = bot.get_weights()
-  pesos_perturbados = [peso + (((-1)**(rd.randint(1, 2)))*np.random.normal(scale=mutacao, size=peso.shape)) for peso in pesos_da_rede]
+  pesos_da_rede = [param.detach().cpu().numpy() for param in bot.parameters()]
+  pesos_perturbados = [peso * ((-1)**(rd.randint(1, 2)))*mutacao for peso in pesos_da_rede]
+  pesos_perturbados = []
+  for peso in pesos_da_rede:
+    if rd.randint(0, 1) == 1:
+      pesos_perturbados.append(
+        peso + (peso * ((-1)**(rd.randint(1, 2)))*mutacao)
+      )
+    else:
+      pesos_perturbados.append(peso)
 
-  inputs = tf.keras.layers.Input(shape=(25, 18))
-  hidden = tf.keras.layers.Flatten()(inputs)
-  hidden = tf.keras.layers.Dense(9, activation='relu')(hidden)
-  hidden = tf.keras.layers.Dropout(0.25)(hidden)
-  hidden = tf.keras.layers.Dense(5, activation='relu')(hidden)
-  out = tf.keras.layers.Dense(saida, activation='softmax', dtype=tf.float16)(hidden)
+  novo_bot = ModeloBot()
 
-  novo_bot = tf.keras.models.Model(inputs, out)
-  novo_bot.set_weights(pesos_perturbados)
-  novo_bot.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+  with torch.no_grad():
+      params_iter = iter(novo_bot.parameters())
+      for peso_perturbado in pesos_perturbados:
+          parametro = next(params_iter)
+          parametro.copy_(torch.tensor(peso_perturbado, dtype=parametro.dtype))
 
   return novo_bot
 
 def escolher_melhores(resultados):
   melhores = []
   jogo: TetriZzz_Otimizado
-  for bot, jogo in resultados:
-    recompensa = jogo.tabuleiro.pontos
-    if len(melhores) < total_escolhidos:
-      melhores.append((bot, jogo, recompensa))
-    else:
-      alvo = (None, 0)
-      for modelo_selecionado, jogo_selecionado, recompensa_selecionada in melhores:
-        if recompensa_selecionada < recompensa:
-          if alvo[0] == None:
-            alvo = (modelo_selecionado, jogo_selecionado, recompensa_selecionada)
-          elif alvo[2] > recompensa_selecionada:
-            alvo = (modelo_selecionado, jogo_selecionado, recompensa_selecionada)
+  resultados = [[bot, jogo, jogo.tabuleiro.pontos] for bot, jogo in resultados]
+  resultados.sort(key=lambda x: x[2], reverse=True)
+  melhores = [resultados[i] for i in range(total_escolhidos)]
 
-      if alvo[0] != None:
-        melhores.remove(alvo)
-        melhores.append((bot, jogo, recompensa))
-
-  print('Melhores: ', end='')
-  for _, _, recompensa in melhores:
-    print(f'{recompensa} : ', end='')
-  print('\n')
+  recomps = [x for _, _, x in melhores]
+  print(f"Media {np.mean(recomps)}")
+  print(f"Desvio {np.std(recomps)}\n")
+  # print('Melhores: ', end='')
+  # i=0
+  # for _, _, recompensa in melhores:
+  #   print(f'{recompensa} : ', end='')
+  #   # melhores_n[i].append(recompensa)
+  #   i += 1
+  # print('\n')
   return melhores
 
 def aplicar_mutacao(melhores):
@@ -128,16 +143,24 @@ def adicionar_jogos(bots):
   retorno = []
   for l in range(int(linhas)):
     for i in range(int(colunas)):
-      jogo = TetriZzz_Otimizado(i * largura_dos_jogos, (i + 1) * largura_dos_jogos, l * altura_dos_jogos, (l + 1) * altura_dos_jogos, janela)
+      jogo = TetriZzz_Otimizado(i * largura_dos_jogos, (i + 1) * largura_dos_jogos, l * altura_dos_jogos, (l + 1) * altura_dos_jogos, janela, desenhar=True)
       retorno.append((bots[len(retorno)], jogo))
       if len(retorno) == total_de_bots:
         break
     if len(retorno) == total_de_bots:
       break
+
+  ln = len(retorno)
+  for i in range(total_de_bots - ln):
+    bot = gerar_bot()
+    jogo = TetriZzz_Otimizado(0*largura_dos_jogos, (0+1)*largura_dos_jogos, 0*altura_dos_jogos, (0+1)*altura_dos_jogos, janela, desenhar=False)
+    retorno.append((bot, jogo))
   return retorno
 
 def treinar(bots, num_episodes):
   for epsodio in range(num_episodes):
+    print(f'Epoca: {epsodio}', end='', flush=True)
+    inicio = time.time()
     resultados = []
     threads = []
     for bot, jogo in bots:
@@ -148,40 +171,70 @@ def treinar(bots, num_episodes):
     for thread in threads:
       thread.join()
 
-
-    print(f'Epoca: {epsodio}')
+    fim = time.time()
+    tempo = int(fim - inicio)
+    print(f" | {tempo} s")
     melhores = escolher_melhores(resultados)
     bots = aplicar_mutacao(melhores)
     bots = adicionar_jogos(bots)
+
+    # ymin = False
+    # ymax = False
+    # for line, melhor_m in zip(lines, melhores_n):
+    #   line.set_ydata(melhor_m)
+    #   mini = min(melhor_m)
+    #   maxi = max(melhor_m)
+    #   ymin = mini if mini < ymin else ymin
+    #   ymax = maxi if maxi > ymax else ymax
+
+    # ax.set_ylim(ymin-100, ymax+100)
+    # ax.set_xlim(0, len(melhor_m))
+    # plt.pause(0.1)
+    # plt.draw()
+    # plt.pause(0.1)
+    # plt.show()
 
   return bots
 
 janela = criar_janela()
 saida = 5
-total_de_bots = 8
-total_escolhidos = 2
-mutacao = 0.005
+total_de_bots = 1000
+total_escolhidos = 1
+ativos = total_escolhidos
+
+# melhores_n = [[] for _ in range(total_escolhidos)]
+# plt.ion()
+# fig, ax = plt.subplots()
+# lines = [ax.plot([], [])[0] for _ in melhores_n]
+
+mutacao = 0.002
 colunas = 3
-if total_de_bots < colunas:
-  colunas = total_de_bots
-linhas = total_de_bots % colunas
-if linhas == 0: linhas = total_de_bots / colunas
-else: linhas = int(total_de_bots / colunas) + 1
+linhas = 2
+# if total_de_bots < colunas:
+#   colunas = total_de_bots
+# linhas = total_de_bots % colunas
+# if linhas == 0: linhas = total_de_bots / colunas
+# else: linhas = int(total_de_bots / colunas) + 1
 info = pygame.display.Info()
 largura_dos_jogos = (info.current_w)/colunas
 altura_dos_jogos = (info.current_h)/linhas
 
-jogo = TetriZzz_Otimizado(0*largura_dos_jogos, (0+1)*largura_dos_jogos, 0*altura_dos_jogos, (0+1)*altura_dos_jogos, janela)
-
+jogo = TetriZzz_Otimizado(0*largura_dos_jogos, (0+1)*largura_dos_jogos, 0*altura_dos_jogos, (0+1)*altura_dos_jogos, janela, desenhar=False)
 bots = []
 for l in range(int(linhas)):
   for i in range(int(colunas)):
     bot = gerar_bot()
-    jogo = TetriZzz_Otimizado(i*largura_dos_jogos, (i+1)*largura_dos_jogos, l*altura_dos_jogos, (l+1)*altura_dos_jogos, janela)
+    jogo = TetriZzz_Otimizado(i*largura_dos_jogos, (i+1)*largura_dos_jogos, l*altura_dos_jogos, (l+1)*altura_dos_jogos, janela, desenhar=True)
     bots.append((bot, jogo))
-    print(f'Modelo {len(bots)} criado')
     if len(bots) == total_de_bots:
       break
   if len(bots) == total_de_bots:
     break
+
+ln = len(bots)
+for i in range(total_de_bots - ln):
+  bot = gerar_bot()
+  jogo = TetriZzz_Otimizado(0*largura_dos_jogos, (0+1)*largura_dos_jogos, 0*altura_dos_jogos, (0+1)*altura_dos_jogos, janela, desenhar=False)
+  bots.append((bot, jogo))
+
 bots = treinar(bots, 10000)

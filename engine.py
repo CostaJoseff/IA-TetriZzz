@@ -1,10 +1,12 @@
 import random as rd
 
 import pygame, time
+from tabuleiro import Tabuleiro
 from valores import linhas_completas
 
 class Engine:
-  def __init__(self, x_i, x_f, y_i, y_f, base_blocos, altura_blocos, janela):
+  def __init__(self, x_i, x_f, y_i, y_f, base_blocos, altura_blocos, janela, tabuleiro):
+    self.tabuleiro: Tabuleiro = tabuleiro
     self.x_i = x_i
     self.x_f = x_f
     self.y_i = y_i
@@ -17,7 +19,8 @@ class Engine:
     self.altura_do_bloco = self.altura/self.altura_blocos
     self.janela = janela
     self.fonte_texto = pygame.font.SysFont("Pixeled", 30)
-    self.random_background = rd.randint(0, 100)
+    # self.random_background = rd.randint(0, 100)
+    self.random_background = 0
     janela.fill([self.random_background, self.random_background, self.random_background])
     pygame.display.update()
   
@@ -29,7 +32,6 @@ class Engine:
     time.sleep(5)
 
   def desenhar_bloco(self, vetor2, peca):
-    pass
     if self.y_i+(self.altura_do_bloco*vetor2[0]) < self.y_i: return
 
     block = pygame.Rect(self.x_i+(self.largura_do_bloco*vetor2[1]), self.y_i+(self.altura_do_bloco*vetor2[0]), self.largura_do_bloco, self.altura_do_bloco)
@@ -49,16 +51,19 @@ class Engine:
 
   def limpar(self):
     block = pygame.Rect(self.x_i, self.y_i, self.x_f, self.y_f)
-    pygame.draw.rect(self.janela, [self.random_background, self.random_background, self.random_background], block)
-    pygame.display.update()
+    pygame.draw.rect(self.janela, [255, 0, 0], block)
+    # pygame.display.update()
 
   def remover_bloco(self, vetor2):
     if self.y_i + (self.altura_do_bloco * vetor2[0]) < self.y_i: return
 
     block = pygame.Rect(self.x_i+(self.largura_do_bloco*vetor2[1]), self.y_i+(self.altura_do_bloco*vetor2[0]), self.largura_do_bloco, self.altura_do_bloco)
     pygame.draw.rect(self.janela, [self.random_background, self.random_background, self.random_background], block)
-    pygame.display.update()
+    # pygame.display.update()
 
   def desenhar_ponto(self):
-    txt_pontos = self.fonte_texto.render(str(linhas_completas), 0, (255, 255, 255))
-    self.janela.blit(txt_pontos, (self.x_i+(self.largura/2), (self.y_i)))
+    txt_pontos = self.fonte_texto.render(str(self.tabuleiro.pontos), 0, (255, 255, 255))
+    bloco = txt_pontos.get_rect()
+    bloco.topleft = (self.x_i+(self.largura/2), (self.y_i))
+    pygame.draw.rect(self.janela, (0, 0, 0), bloco)
+    self.janela.blit(txt_pontos, bloco.topleft)

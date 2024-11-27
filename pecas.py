@@ -16,28 +16,28 @@ def gerar_pecas ():
             [0, 8, 0, 0],
             [0, 8, 0, 0]]
 
-  peca_j = [[0, 8, 0],
-            [0, 8, 0],
-            [8, 8, 0]]
+  peca_j = [[0, 2, 0],
+            [0, 2, 0],
+            [2, 2, 0]]
 
-  peca_l = [[0, 8, 0],
-            [0, 8, 0],
-            [0, 8, 8]]
+  peca_l = [[0, 3, 0],
+            [0, 3, 0],
+            [0, 3, 3]]
 
-  peca_o = [[8, 8],
-            [8, 8]]
+  peca_o = [[4, 4],
+            [4, 4]]
 
-  peca_s = [[0, 8, 8],
-            [8, 8, 0],
+  peca_s = [[0, 5, 5],
+            [5, 5, 0],
             [0, 0, 0]]
 
-  peca_z = [[8, 8, 0],
-            [0, 8, 8],
+  peca_z = [[6, 6, 0],
+            [0, 6, 6],
             [0, 0, 0]]
 
   peca_t = [[0, 0, 0],
-            [8, 8, 8],
-            [0, 8, 0]]
+            [7, 7, 7],
+            [0, 7, 0]]
   return [peca_i, peca_j, peca_l, peca_o, peca_s, peca_z, peca_t]
 
 
@@ -56,7 +56,7 @@ class Pecas:
   def rotacionar (self):
     self.peca_atual = rotacionar(self.peca_atual)
     self.rotacao = (self.rotacao + 1) % 4
-    self.rotacoes += 1
+    # self.rotacoes += 1
 
   def nova_peca (self):
     self.id = rd.randint(1, 7)

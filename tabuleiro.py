@@ -19,7 +19,7 @@ class Tabuleiro:
 
     self.tabuleiro = matriz_zero_com_bordas(altura + self.espaco_adicional_cima, largura, self.tamanho_borda,valor_borda)
     self.tabuleiro = np.array(self.tabuleiro)
-    #self.vetor = self.tabuleiro.flatten()
+    self.visao = self.tabuleiro[:self.altura+self.espaco_adicional_cima, self.tamanho_borda:self.tamanho_borda+self.largura]
 
     self.peca_atual = Pecas()
     self.coluna_atual = self.tamanho_borda + 4
@@ -71,8 +71,8 @@ class Tabuleiro:
     self.remover_peca()
     peca_temp = self.peca_atual.peca_atual
     self.peca_atual.rotacionar()
-    if self.peca_atual.rotacoes > 4:
-      punicao_rotacao = punicao_leve
+    # if self.peca_atual.rotacoes > 4:
+    #   punicao_rotacao = punicao_leve
     retorno = self.posicionar_peca()
     if retorno == codigo_colidiu:
       self.peca_atual.peca_atual = peca_temp
@@ -86,7 +86,7 @@ class Tabuleiro:
     self.linha_atual += 1
     while self.tem_espaco():
       self.linha_atual += 1
-      self.pontos += 5
+      self.pontos += 1
     self.linha_atual -= 1
     self.posicionar_peca()
     return recompensa_media, self.calcular_alturas(), altura_anterior
@@ -138,11 +138,18 @@ class Tabuleiro:
   def reiniciou(self):
     if self.linha_atual - self.peca_atual.maior_bloco() - 1 <= self.altura_limite: return punicao_perdeu
     recompensa_verificacoes = self.verificacoes()
+    self.normalizar_tabuleiro()
     self.peca_atual.nova_peca()
     self.coluna_atual = self.coluna_atual = self.tamanho_borda + 4
     self.linha_atual = self.espaco_adicional_cima + 1
     self.posicionar_peca()
-    return recompensa_verificacoes
+    return recompensa_verificacoes + recompensa_media
+
+  def normalizar_tabuleiro(self):
+    for l in range(len(self.tabuleiro)):
+      for c in range(len(self.tabuleiro[0])):
+        if self.tabuleiro[l][c] > 0:
+          self.tabuleiro[l][c] = 1
 
   def verificacoes(self):
     return self.verificar_linhas()
