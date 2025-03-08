@@ -2,6 +2,7 @@ from Util.Operacoes import matriz_zero_com_bordas
 from Jogo.Pecas import Pecas
 from Jogo.valores import *
 import numpy as np
+import cv2
 
 
 class Tabuleiro:
@@ -29,7 +30,11 @@ class Tabuleiro:
 
     self.maiores_alturas = [0] * largura
     self.pontos = 0
-    self.buracos = 0
+
+    self.bloqueados = 0
+    self.compactacao = 0
+    self.var_x = 0
+    self.var_y = 0
 
   def mover_para_baixo(self):
     self.remover_peca()
@@ -159,6 +164,8 @@ class Tabuleiro:
     menor_altura = min(self.calcular_alturas())
     dif_linha_final = linha_final - menor_altura
     punicao_altura = -7 if dif_linha_final >= 4 else 0
+    bem_posicionado = punicao_alta >= 0
+    bem_compactado = self.analizar_tabuleiro()
     
     recompensa_verificacoes = self.verificacoes(tab_anterior, tab_atual)
 
@@ -167,7 +174,13 @@ class Tabuleiro:
     self.linha_atual = self.espaco_adicional_cima + 1
     self.posicionar_peca()
 
-    return recompensa_verificacoes + punicao_altura
+    recompensa_final = 0
+    if bem_posicionado or bem_compactado or recompensa_verificacoes > 5:
+      recompensa_final += recompensa_verificacoes + punicao_altura - self.novos_espaços_trancados()
+    else:
+      recompensa_final = -3 - self.novos_espaços_trancados()
+
+    return recompensa_final
 
   def verificacoes(self, tab_anterior=None, tab_atual=None):
     if tab_atual is not None and tab_anterior is not None:
@@ -207,3 +220,67 @@ class Tabuleiro:
       self.tabuleiro[l] = self.tabuleiro[l - 1]
     for i in range(self.largura):
       self.maiores_alturas[i] -= 1
+
+  def analizar_tabuleiro(self):
+    mascara_de_pecas = (self.tabuleiro > 0).astype(np.uint8)
+    num_labels, labels = cv2.connectedComponents(mascara_de_pecas)
+    areas_das_pecas = {i: np.sum(labels == i) for i in range(1, num_labels)}
+
+    coords = np.column_stack(np.where(mascara_de_pecas > 0))
+    y_min, x_min = coords.min(axis=0)
+    y_max, x_max = coords.max(axis=0)
+
+    bounding_box_area = (y_max - y_min + 1) * (x_max - x_min + 1)
+
+    areas_das_pecas_total = sum(areas_das_pecas.values())
+
+    compactacao = areas_das_pecas_total / bounding_box_area
+
+    bem_posicionado = compactacao-self.compactacao >= 0#  or (variance_x-self.var_x >= 0 and variance_y-self.var_y >= 0)
+
+    self.compactacao = compactacao
+    print(compactacao)
+    return bem_posicionado
+  
+  def novos_espaços_trancados(self):
+    l_atual = 0
+    c_atual = 0
+    bloqueados = 0
+
+    c_atual = self.tamanho_borda
+    l_atual = self.altura+self.espaco_adicional_cima-1
+
+    for c in range(self.largura):
+      for l in range(self.altura):
+        if self.tabuleiro[l_atual-l][c_atual+c] > 0:
+          continue
+        if self.tabuleiro[l_atual-l][c_atual+c] == -1:
+          break
+
+        if not self.chegar_no_topo(l_atual-l, c_atual+c):
+          bloqueados += 1
+        else:
+          break
+    novos_bloqueados = bloqueados - self.bloqueados
+    self.bloqueados = bloqueados
+    print(f"Novos bloqueados: {novos_bloqueados}")
+    return novos_bloqueados
+
+
+
+  def chegar_no_topo(self, l, c, dir_anterior=0):
+    if self.tabuleiro[l-1][c] != 0 and self.tabuleiro[l][c+1] != 0 and self.tabuleiro[l][c-1] != 0:
+      return False
+    if 0 == l-1:
+      return True
+    
+    cima, esquerda, direita = False, False, False
+    
+    if self.tabuleiro[l-1][c] == 0:
+      cima = self.chegar_no_topo(l-1, c)
+    if self.tabuleiro[l][c-1] == 0 and dir_anterior != 1 and not cima:
+      esquerda = self.chegar_no_topo(l, c-1, -1)
+    if self.tabuleiro[l][c+1] == 0 and dir_anterior != -1 and not esquerda and not cima:
+      direita = self.chegar_no_topo(l, c+1, 1)
+      
+    return cima or esquerda or direita

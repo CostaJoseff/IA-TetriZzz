@@ -64,9 +64,8 @@ class TetriZzz_Otimizado:
     self.desenhar_peca_atual()
     if recompensa_reiniciou == punicao_perdeu:
       self.perdeu = True
-      self.redesenhar_tudo()
-    elif recompensa_reiniciou > 0:
-      self.redesenhar_tudo()
+    
+    self.redesenhar_tudo()
 
     punish = compute_punishment(tab_anterior, tab_atual)
     recompensa_final = punish if punish == -1 else (recompensa + recompensa_reiniciou)
