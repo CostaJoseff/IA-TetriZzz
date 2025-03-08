@@ -1,24 +1,21 @@
-import sys
-
-from operacoes import matriz_zero_com_bordas, media
-from valores import *
-import random as rd
+from Util.Operacoes import matriz_zero_com_bordas
+from Jogo.Pecas import Pecas
+from Jogo.valores import *
 import numpy as np
-from pecas import Pecas
 
 
 class Tabuleiro:
 
   def __init__(self, largura, altura):
     self.espaco_adicional_cima = 5
-    self.tamanho_borda = 4
+    self.tamanho_borda = tamanho_borda
     self.altura_limite = 5
 
     self.largura = largura
     self.altura = altura
 
-    self.tabuleiro = matriz_zero_com_bordas(altura + self.espaco_adicional_cima, largura, self.tamanho_borda,valor_borda)
-    self.tabuleiro = np.array(self.tabuleiro)
+    self.tabuleiro: np.ndarray = matriz_zero_com_bordas(altura + self.espaco_adicional_cima, largura, self.tamanho_borda, valor_borda)
+    # self.tabuleiro = np.squeeze(self.tabuleiro, -1)
     #self.vetor = self.tabuleiro.flatten()
 
     self.peca_atual = Pecas()
@@ -36,14 +33,14 @@ class Tabuleiro:
 
   def mover_para_baixo(self):
     self.remover_peca()
-    alturas_anteriores = self.calcular_alturas()
+    tab_anterior = self.tabuleiro.copy()
     self.linha_atual += 1
     retorno = self.posicionar_peca()
     if retorno == codigo_colidiu:
       self.linha_atual -= 1
       self.posicionar_peca()
-      return recompensa_pequena, self.calcular_alturas(), alturas_anteriores
-    self.pontos += 1
+      tab_atual = self.tabuleiro.copy()
+      return 0.0000001, tab_atual, tab_anterior
     return nenhuma_recompensa, None, None
 
   def mover_para_esquerda(self):
@@ -82,20 +79,40 @@ class Tabuleiro:
 
   def ate_o_final(self):
     self.remover_peca()
-    altura_anterior = self.calcular_alturas()
+    tab_anterior = self.tabuleiro.copy()
     self.linha_atual += 1
     while self.tem_espaco():
       self.linha_atual += 1
       self.pontos += 5
     self.linha_atual -= 1
     self.posicionar_peca()
-    return recompensa_media, self.calcular_alturas(), altura_anterior
+    tab_atual = self.tabuleiro.copy()
+    
+    return recompensa_media, tab_atual, tab_anterior
 
   def remover_peca(self):
     for l in range(self.peca_atual.altura() - 1, -1, -1):
       for c in range(self.peca_atual.largura()):
         if self.peca_atual.peca_atual[l][c] != 0:
           self.tabuleiro[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 0
+
+  def model_ajust(self, input: np.ndarray = None):
+    if not input:
+      tab = self.tabuleiro.copy()
+    else:
+      tab = input.copy()
+      
+    self.peca_atual.model_ajust()
+    for l in range(self.peca_atual.altura() - 1, -1, -1):
+      for c in range(self.peca_atual.largura()):
+        if self.peca_atual.peca_atual[l][c] != 0:
+          if self.peca_atual.peca_atual[l][c] != 99:
+            tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = self.peca_atual.peca_atual[l][c]
+          else:
+            tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = self.peca_atual.peca_atual_modelo[l][c]
+
+    tab: np.ndarray = np.array(tab)
+    return tab.flatten()
 
   def posicionar_peca(self):
     if not self.tem_espaco(): return codigo_colidiu
@@ -135,23 +152,45 @@ class Tabuleiro:
   def vetor2(self):
     return [self.linha_atual, self.coluna_atual]
 
-  def reiniciou(self):
+  def reiniciou(self, tab_anterior=None, tab_atual=None):
     if self.linha_atual - self.peca_atual.maior_bloco() - 1 <= self.altura_limite: return punicao_perdeu
-    recompensa_verificacoes = self.verificacoes()
+
+    linha_final = self.espaco_adicional_cima + self.altura - self.linha_atual
+    menor_altura = min(self.calcular_alturas())
+    dif_linha_final = linha_final - menor_altura
+    punicao_altura = -7 if dif_linha_final >= 4 else 0
+    
+    recompensa_verificacoes = self.verificacoes(tab_anterior, tab_atual)
+
     self.peca_atual.nova_peca()
-    self.coluna_atual = self.coluna_atual = self.tamanho_borda + 4
+    self.coluna_atual = self.tamanho_borda + 4
     self.linha_atual = self.espaco_adicional_cima + 1
     self.posicionar_peca()
-    return recompensa_verificacoes
 
-  def verificacoes(self):
+    return recompensa_verificacoes + punicao_altura
+
+  def verificacoes(self, tab_anterior=None, tab_atual=None):
+    if tab_atual is not None and tab_anterior is not None:
+      return self.verificar_linhas_2(tab_anterior, tab_atual) + self.verificar_linhas()
     return self.verificar_linhas()
+  
+  def verificar_linhas_2(self, tab_anterior=None, tab_atual=None):
+    contagem_anterior = (tab_anterior > 0).sum(axis=1)
+    contagem_atual = (tab_atual > 0).sum(axis=1)
+
+    mascara = contagem_anterior > 0
+    diferenca = contagem_atual[mascara] - contagem_anterior[mascara]
+
+    if np.any(diferenca > 0):
+      return 1
+    else:
+      return 0
 
   def verificar_linhas(self, l=None, iteracoes=0):
     if l == None:
       l = len(self.tabuleiro) - self.tamanho_borda - 1
 
-    for l in range(l, 0, -1):
+    for l in range(l, 3, -1):
       contem_0 = False
       for c in range(self.tamanho_borda, self.ultima_coluna):
         if self.tabuleiro[l][c] == 0:

@@ -1,5 +1,5 @@
+from Util.Operacoes import rotacionar
 import random as rd
-from operacoes import rotacionar
 
 id_i = 1
 id_j = 2
