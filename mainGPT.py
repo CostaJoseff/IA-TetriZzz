@@ -14,7 +14,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from threading import Thread
 plt.ion()
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(2, 5))
 
 class FilaDeMovimentos():
     def __init__(self, tamanho):
@@ -75,20 +75,33 @@ class Memory_():
     def __iter__(self):
         return iter(list(self.dequeue_pos) + list(self.dequeue_neg))
     
+import torch.nn.functional as F
+import torch.nn as nn
+from torch import flatten
+
 class DQN(nn.Module):
-    def __init__(self, input_shape, num_actions):
+    def __init__(self, input_channels, num_actions):
         super(DQN, self).__init__()
-        print(input_shape)
-        self.fc1 = nn.Linear(input_shape, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, num_actions)
+        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+
+        self.fc = nn.Linear(49152, num_actions)
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = F.leaky_relu(self.bn1(self.conv1(x)), negative_slope=0.01)
+        x = F.leaky_relu(self.bn2(self.conv2(x)), negative_slope=0.01)
+        x = F.leaky_relu(self.bn3(self.conv3(x)), negative_slope=0.01)
 
-def update_plot(model, layer="fc1.weight"):
+        x = flatten(x, start_dim=1)
+        return self.fc(x)
+
+def update_plot(model, layer="fc.weight"):
     weights = model.state_dict()[layer].cpu().numpy()
     sns.heatmap(weights, annot=False, cmap="magma", fmt=".4f", cbar=False)
     plt.title(f"Distribuição de Pesos - {layer}")
@@ -114,10 +127,10 @@ class TetrizEnv(Env):
         self.largura_dos_jogos = (self.info.current_w)/self.colunas
         self.altura_dos_jogos = (self.info.current_h)/self.linhas
         self.jogo: TetriZzz_Otimizado = TetriZzz_Otimizado(0*self.largura_dos_jogos, (0+1)*self.largura_dos_jogos, 0*self.altura_dos_jogos, (0+1)*self.altura_dos_jogos, self.janela)
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
-        self.state_anterior = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state = self.jogo.tabuleiro.tabuleiro
+        self.state_anterior = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos = FilaDeMovimentos(tamanho_fila_movimentos)
-        self.observation_space = Box(low=0, high=99, shape=np.concatenate((self.state, self.fila_de_movimentos.to_numpy(), self.state_anterior)).shape, dtype=np.int8)
+        self.observation_space = Box(low=0, high=99, shape=np.stack((self.state, self.state_anterior), axis=0).shape, dtype=np.int8)
 
     def process_events(self):
         global quit
@@ -128,20 +141,20 @@ class TetrizEnv(Env):
 
     def step(self, action):
         self.process_events()
-        self.state_anterior = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state_anterior = self.jogo.tabuleiro.tabuleiro
         reward = self.jogo.acao(action)
         done = self.jogo.perdeu
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos.em_fila(action)
         new_state_return = self.jogo.tabuleiro.model_ajust()
-        new_state_return = np.concatenate((new_state_return, self.fila_de_movimentos.to_numpy(), self.state_anterior))
+        new_state_return = np.stack((new_state_return, self.state_anterior), axis=0)
         return new_state_return, reward, done, {}
 
     def reset(self):
         self.process_events()
         self.jogo: TetriZzz_Otimizado = TetriZzz_Otimizado(0*self.largura_dos_jogos, (0+1)*self.largura_dos_jogos, 0*self.altura_dos_jogos, (0+1)*self.altura_dos_jogos, self.janela)
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
-        return np.concatenate((self.jogo.tabuleiro.model_ajust(), self.fila_de_movimentos.to_numpy(), self.state_anterior))
+        self.state = self.jogo.tabuleiro.tabuleiro
+        return np.stack((self.jogo.tabuleiro.model_ajust(), self.state_anterior), axis=0)
 
 
 # Parâmetros

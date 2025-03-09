@@ -100,9 +100,8 @@ class AI_Hub():
                 self.melhor_score_atual = reward
             if self.maior_reward < reward:
                 self.maior_reward = reward
-            self.mutex.release()
-
             self.log()
+            self.mutex.release()
 
         self.mutex.acquire()
         if self.maior_score < env.jogo.tabuleiro.pontos:
@@ -122,7 +121,7 @@ class AI_Hub():
         next_states = torch.tensor(np.array(next_states), dtype=torch.float32).to(device)
         dones = torch.tensor(dones, dtype=torch.float32).to(device)
 
-        for i in range(10):
+        for i in range(5):
             q_values = modelo_base["modelo"](states).gather(1, actions.unsqueeze(1)).squeeze()
             next_q_values = modelo_base["modelo"](next_states).max(1)[0].detach()
             targets = rewards + next_reward_focus * next_q_values * (1 - dones)
@@ -139,7 +138,7 @@ class AI_Hub():
         self.epsode += 1
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
-    def update_plot(self, model, layer="fc1.weight"):
+    def update_plot(self, model, layer="fc.weight"):
         weights = model.state_dict()[layer].cpu().numpy()
         if self.pesos_anteriores is not None:
             heat_map = weights - self.pesos_anteriores

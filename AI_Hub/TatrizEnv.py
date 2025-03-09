@@ -21,10 +21,10 @@ class TetrizEnv(Env):
             self.altura_dos_jogos = 0
         self.total_de_bots = 1
         self.jogo: TetriZzz_Otimizado = TetriZzz_Otimizado(0*self.largura_dos_jogos, (0+1)*self.largura_dos_jogos, 0*self.altura_dos_jogos, (0+1)*self.altura_dos_jogos, self.janela)
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
-        self.state_anterior = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state = self.jogo.tabuleiro.tabuleiro
+        self.state_anterior = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos = FilaDeMovimentos()
-        self.observation_space = Box(low=0, high=99, shape=np.concatenate((self.state, self.fila_de_movimentos.to_numpy(), self.state_anterior)).shape, dtype=np.int8)
+        self.observation_space = Box(low=0, high=99, shape=np.stack((self.state, self.state_anterior), axis=0).shape, dtype=np.int8)
 
     def criar_janela(self):
         pygame.init()
@@ -41,18 +41,18 @@ class TetrizEnv(Env):
     def step(self, action, process_events: bool):
         if process_events:
             self.process_events()
-        self.state_anterior = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state_anterior = self.jogo.tabuleiro.tabuleiro
         reward = self.jogo.acao(action)
         done = self.jogo.perdeu
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
+        self.state = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos.em_fila(action)
         new_state_return = self.jogo.tabuleiro.model_ajust()
-        new_state_return = np.concatenate((new_state_return, self.fila_de_movimentos.to_numpy(), self.state_anterior))
+        new_state_return = np.stack((new_state_return, self.state_anterior), axis=0)
         return new_state_return, reward, done, {}
 
     def reset(self, process_events: bool):
         if process_events:
             self.process_events()
         self.jogo: TetriZzz_Otimizado = TetriZzz_Otimizado(0*self.largura_dos_jogos, (0+1)*self.largura_dos_jogos, 0*self.altura_dos_jogos, (0+1)*self.altura_dos_jogos, self.janela)
-        self.state = self.jogo.tabuleiro.tabuleiro.flatten()
-        return np.concatenate((self.jogo.tabuleiro.model_ajust(), self.fila_de_movimentos.to_numpy(), self.state_anterior))
+        self.state = self.jogo.tabuleiro.tabuleiro
+        return np.stack((self.jogo.tabuleiro.model_ajust(), self.state_anterior), axis=0)

@@ -1,22 +1,25 @@
 import torch.nn.functional as F
 import torch.nn as nn
+from torch import flatten
 
 class DQN(nn.Module):
-    def __init__(self, input_shape, num_actions):
+    def __init__(self, input_channels, num_actions):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(input_shape, input_shape)
-        self.bn1 = nn.LayerNorm(input_shape)
+        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
 
-        self.fc2 = nn.Linear(input_shape, 128)
-        self.bn2 = nn.LayerNorm(128)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
 
-        self.fc3 = nn.Linear(128, 128)
-        self.bn3 = nn.LayerNorm(128)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
 
-        self.fc4 = nn.Linear(128, num_actions)
+        self.fc = nn.Linear(49152, num_actions)
 
     def forward(self, x):
-        x = F.leaky_relu(self.bn1(self.fc1(x)), negative_slope=0.01)
-        x = F.leaky_relu(self.bn2(self.fc2(x)), negative_slope=0.01)
-        x = F.leaky_relu(self.bn3(self.fc3(x)), negative_slope=0.01)
-        return self.fc4(x)
+        x = F.leaky_relu(self.bn1(self.conv1(x)), negative_slope=0.01)
+        x = F.leaky_relu(self.bn2(self.conv2(x)), negative_slope=0.01)
+        x = F.leaky_relu(self.bn3(self.conv3(x)), negative_slope=0.01)
+
+        x = flatten(x, start_dim=1)
+        return self.fc(x)

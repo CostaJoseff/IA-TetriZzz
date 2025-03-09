@@ -35,7 +35,7 @@ L_index = -1
 
 
 print("Gerando modelos ocultos")
-for i in range(500):
+for i in range(100):
     ambiente = TetrizEnv()
     modelo = DQN(ambiente.observation_space.shape[0], ambiente.action_space.n)
     O_index = (O_index + 1) % len(otimizadores)

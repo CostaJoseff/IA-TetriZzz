@@ -1,9 +1,10 @@
 from Util.Operacoes import matriz_zero_com_bordas
+from copy import deepcopy as copy
 from Jogo.Pecas import Pecas
+from threading import Thread
 from Jogo.valores import *
 import numpy as np
 import cv2
-
 
 class Tabuleiro:
 
@@ -117,7 +118,7 @@ class Tabuleiro:
             tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = self.peca_atual.peca_atual_modelo[l][c]
 
     tab: np.ndarray = np.array(tab)
-    return tab.flatten()
+    return tab
 
   def posicionar_peca(self):
     if not self.tem_espaco(): return codigo_colidiu
@@ -160,32 +161,68 @@ class Tabuleiro:
   def reiniciou(self, tab_anterior=None, tab_atual=None):
     if self.linha_atual - self.peca_atual.maior_bloco() - 1 <= self.altura_limite: return punicao_perdeu
 
-    linha_final = self.espaco_adicional_cima + self.altura - self.linha_atual
-    menor_altura = min(self.calcular_alturas())
-    dif_linha_final = linha_final - menor_altura
-    punicao_altura = -7 if dif_linha_final >= 4 else 0
-    bem_posicionado = punicao_alta >= 0
-    bem_compactado = self.analizar_tabuleiro()
+    threads = []
+
+    global novos_espacos_trancados
+    novos_espacos_trancados = 0
+    thread = Thread(target=self.novos_espaços_trancados)
+    thread.start()
+    threads.append(thread)
+
+    global recompensa_verificacoes
+    recompensa_verificacoes = 0
+    thread = Thread(target=self.verificacoes, args=[tab_anterior, tab_atual])
+    thread.start()
+    threads.append(thread)
+
+    global bem_posicionado
+    global punicao_altura
+    bem_posicionado = None
+    punicao_altura = 0
+    thread = Thread(target=self.verificar_bem_posicionado)
+    thread.start()
+    threads.append(thread)
+
     
-    recompensa_verificacoes = self.verificacoes(tab_anterior, tab_atual)
+    global bem_compactado
+    bem_compactado = None
+    thread = Thread(target=self.analizar_tabuleiro)
+    thread.start()
+    threads.append(thread)
+
+    thr: Thread
+    for thr in threads:
+      thr.join()
+
+    recompensa_final = 0
+    if bem_posicionado or bem_compactado or recompensa_verificacoes > 5:
+      recompensa_final += recompensa_verificacoes + punicao_altura - novos_espacos_trancados
+    else:
+      recompensa_final = -3 - novos_espacos_trancados
 
     self.peca_atual.nova_peca()
     self.coluna_atual = self.tamanho_borda + 4
     self.linha_atual = self.espaco_adicional_cima + 1
     self.posicionar_peca()
 
-    recompensa_final = 0
-    if bem_posicionado or bem_compactado or recompensa_verificacoes > 5:
-      recompensa_final += recompensa_verificacoes + punicao_altura - self.novos_espaços_trancados()
-    else:
-      recompensa_final = -3 - self.novos_espaços_trancados()
-
     return recompensa_final
 
+  def verificar_bem_posicionado(self):
+    global bem_posicionado
+    global punicao_altura
+
+    linha_final = self.espaco_adicional_cima + self.altura - self.linha_atual
+    menor_altura = min(self.calcular_alturas())
+    dif_linha_final = linha_final - menor_altura
+    punicao_altura = -7 if dif_linha_final >= 4 else 0
+    bem_posicionado = punicao_altura >= 0
+
   def verificacoes(self, tab_anterior=None, tab_atual=None):
+    global recompensa_verificacoes
     if tab_atual is not None and tab_anterior is not None:
-      return self.verificar_linhas_2(tab_anterior, tab_atual) + self.verificar_linhas()
-    return self.verificar_linhas()
+      recompensa_verificacoes = self.verificar_linhas_2(tab_anterior, tab_atual) + self.verificar_linhas()
+    else:
+      recompensa_verificacoes = self.verificar_linhas()
   
   def verificar_linhas_2(self, tab_anterior=None, tab_atual=None):
     contagem_anterior = (tab_anterior > 0).sum(axis=1)
@@ -239,16 +276,18 @@ class Tabuleiro:
     bem_posicionado = compactacao-self.compactacao >= 0#  or (variance_x-self.var_x >= 0 and variance_y-self.var_y >= 0)
 
     self.compactacao = compactacao
-    print(compactacao)
     return bem_posicionado
   
   def novos_espaços_trancados(self):
+    global novos_espacos_trancados
     l_atual = 0
     c_atual = 0
     bloqueados = 0
 
     c_atual = self.tamanho_borda
     l_atual = self.altura+self.espaco_adicional_cima-1
+
+    tab_copy = np.array(copy(self.tabuleiro), dtype=object)
 
     for c in range(self.largura):
       for l in range(self.altura):
@@ -257,30 +296,52 @@ class Tabuleiro:
         if self.tabuleiro[l_atual-l][c_atual+c] == -1:
           break
 
-        if not self.chegar_no_topo(l_atual-l, c_atual+c):
+        if not self.chegar_no_topo(l_atual-l, c_atual+c, tab_copy):
           bloqueados += 1
         else:
-          break
+          continue
+
     novos_bloqueados = bloqueados - self.bloqueados
     self.bloqueados = bloqueados
-    print(f"Novos bloqueados: {novos_bloqueados}")
-    return novos_bloqueados
+    novos_espacos_trancados = novos_bloqueados
 
-
-
-  def chegar_no_topo(self, l, c, dir_anterior=0):
-    if self.tabuleiro[l-1][c] != 0 and self.tabuleiro[l][c+1] != 0 and self.tabuleiro[l][c-1] != 0:
+  def chegar_no_topo(self, l, c, tabul, dir_anterior=0):
+    em_volta_algum_chega = (isinstance(tabul[l-1][c], bool) and tabul[l-1][c] == True) or (isinstance(tabul[l][c-1], bool) and tabul[l][c-1] == True) or (isinstance(tabul[l][c+1], bool) and tabul[l][c+1] == True)
+    if em_volta_algum_chega:
+      tabul[l][c] = True
+      return True
+    
+    em_volta_nenhum_chega = (isinstance(tabul[l-1][c], bool) and tabul[l-1][c] == False) and (isinstance(tabul[l][c-1], bool) and tabul[l][c-1] == False) and (isinstance(tabul[l][c+1], bool) and tabul[l][c+1] == False)
+    if em_volta_nenhum_chega:
+      tabul[l][c] = False
       return False
-    if 0 == l-1:
+
+    sem_caminho = tabul[l-1][c] != 0 and tabul[l][c+1] != 0 and tabul[l][c-1] != 0
+    if sem_caminho:
+      tabul[l][c] = False
+      return False
+    
+    ultima_linha = 0 == l-1
+    if ultima_linha:
+      tabul[l][c] = True
       return True
     
     cima, esquerda, direita = False, False, False
-    
-    if self.tabuleiro[l-1][c] == 0:
-      cima = self.chegar_no_topo(l-1, c)
-    if self.tabuleiro[l][c-1] == 0 and dir_anterior != 1 and not cima:
-      esquerda = self.chegar_no_topo(l, c-1, -1)
-    if self.tabuleiro[l][c+1] == 0 and dir_anterior != -1 and not esquerda and not cima:
-      direita = self.chegar_no_topo(l, c+1, 1)
+
+    if isinstance(tabul[l-1][c], bool):
+      cima = tabul[l-1][c]
+    elif tabul[l-1][c] == 0:
+      cima = self.chegar_no_topo(l-1, c, tabul)
+
+    if isinstance(tabul[l][c-1], bool):
+      esquerda = tabul[l][c-1]
+    elif tabul[l][c-1] == 0 and dir_anterior != 1 and not cima:
+      esquerda = self.chegar_no_topo(l, c-1, tabul, -1)
+
+    if isinstance(tabul[l][c+1], bool):
+      direita = tabul[l][c+1]
+    elif tabul[l][c+1] == 0 and dir_anterior != -1 and not esquerda and not cima:
+      direita = self.chegar_no_topo(l, c+1, tabul, 1)
       
+    tabul[l][c] = cima or esquerda or direita
     return cima or esquerda or direita
