@@ -1,6 +1,9 @@
+import os
 from matplotlib import  pyplot as plt
 plt.ion()
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(10, 2))
+
+from AI_Hub.valores import device
 
 import torch.nn.functional as F
 import torch.optim as O
@@ -33,11 +36,13 @@ O_index = -1
 L_index = -1
 
 
-
-print("Gerando modelos ocultos")
-for i in range(100):
+os.system('cls')
+n_modelos_ocultos = 700
+print(f"Gerando {n_modelos_ocultos} modelo{"s" if n_modelos_ocultos != 1 else ""} oculto{"s" if n_modelos_ocultos != 1 else ""}:")
+for i in range(n_modelos_ocultos):
     ambiente = TetrizEnv()
     modelo = DQN(ambiente.observation_space.shape[0], ambiente.action_space.n)
+    modelo = modelo.to(device)
     O_index = (O_index + 1) % len(otimizadores)
     if O_index == 0:
         L_index = (L_index + 1) % len(loss)
@@ -47,10 +52,12 @@ for i in range(100):
     otimizadores_hub.append(otimizadores[O_index])
     losses_hub.append(loss[L_index])
     displays.append(False)
+    print(f'\r{i+1}', end="")
 
 print("Gerando modelo exibido")
 ambiente = TetrizEnv(janela=True)
 modelo = DQN(ambiente.observation_space.shape[0], ambiente.action_space.n)
+modelo = modelo.to(device)
 O_index = (O_index + 1) % len(otimizadores)
 if O_index == 0:
     L_index = (L_index + 1) % len(loss)
@@ -69,5 +76,6 @@ hub = AI_Hub(
     displays
 )
 
+os.system('cls')
 hub.log()
 hub.start()

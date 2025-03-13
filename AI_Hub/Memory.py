@@ -16,12 +16,20 @@ class Memory_():
         self.dequeue_neg = deque(maxlen=self.negative_deq_size)
         self.mutex: Semaphore = Semaphore(1)
 
+    def is_empty(self):
+        self.mutex.acquire()
+        a = len(self.dequeue_pos)
+        b = len(self.dequeue_neg)
+        self.mutex.release()
+        rtrn = a + b == 0
+        return rtrn
+
     def is_full(self):
         self.mutex.acquire()
-        a = min(self.negative_batch_size, len(self.dequeue_neg))
-        b = min(self.positive_batch_size, len(self.dequeue_pos))
-        rtrn = a + b >= batch_size
+        a = len(self.dequeue_pos)
+        b = len(self.dequeue_neg)
         self.mutex.release()
+        rtrn = a + b >= self.memory_size
         return rtrn 
 
     def __len__(self):
@@ -35,8 +43,8 @@ class Memory_():
         b = 0
 
         self.mutex.acquire()
-        a = min(self.negative_batch_size, len(self.dequeue_neg))
-        b = min(self.positive_batch_size, len(self.dequeue_pos))
+        a = len(self.dequeue_pos)
+        b = len(self.dequeue_neg)
         self.mutex.release()
 
         return a + b
@@ -59,7 +67,7 @@ class Memory_():
 
     def append(self, data):
         self.mutex.acquire()
-        if data[2] >= 0:
+        if data[2] > 0:
             self.dequeue_pos.append(data)
         else:
             self.dequeue_neg.append(data)
