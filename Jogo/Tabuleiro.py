@@ -103,19 +103,22 @@ class Tabuleiro:
           self.tabuleiro[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 0
 
   def model_ajust(self, input: np.ndarray = None):
-    if not input:
+    if input is None:
       tab = self.tabuleiro.copy()
     else:
       tab = input.copy()
       
-    self.peca_atual.model_ajust()
-    for l in range(self.peca_atual.altura() - 1, -1, -1):
-      for c in range(self.peca_atual.largura()):
-        if self.peca_atual.peca_atual[l][c] != 0:
-          if self.peca_atual.peca_atual[l][c] != 99:
-            tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = self.peca_atual.peca_atual[l][c]
-          else:
-            tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = self.peca_atual.peca_atual_modelo[l][c]
+    # self.peca_atual.model_ajust()
+    # for l in range(self.peca_atual.altura() - 1, -1, -1):
+    #   for c in range(self.peca_atual.largura()):
+    #     if self.peca_atual.peca_atual[l][c] != 0:
+    #       if self.peca_atual.peca_atual[l][c] != 99:
+    #         tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 1# self.peca_atual.peca_atual[l][c]
+    #       else:
+    #         tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 1# self.peca_atual.peca_atual_modelo[l][c]
+    for l in range(len(tab)):
+      for c in range(len(tab[0])):
+        tab[l][c] = 1 if tab[l][c] > 0 else tab[l][c]
 
     tab: np.ndarray = np.array(tab)
     return tab

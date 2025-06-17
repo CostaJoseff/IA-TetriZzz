@@ -77,5 +77,5 @@ class Engine:
 
   def desenhar_ponto(self):
     if self.janela:
-      txt_pontos = self.fonte_texto.render(str(int(self.tabuleiro.pontos)), 0, (255, 255, 255))
+      txt_pontos = self.fonte_texto.render(str(int(self.tabuleiro.pontos) if self.tabuleiro.pontos != -float("inf") else "-inf"), 0, (255, 255, 255))
       self.janela.blit(txt_pontos, (self.x_i+(self.largura/2), (self.y_i)))

@@ -24,7 +24,7 @@ class TetrizEnv(Env):
         self.state = self.jogo.tabuleiro.tabuleiro
         self.state_anterior = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos = FilaDeMovimentos()
-        self.observation_space = Box(low=0, high=99, shape=np.stack((self.state, self.state_anterior), axis=0).shape, dtype=np.int8)
+        self.observation_space = Box(low=0, high=99, shape=self.state.shape, dtype=np.int8)
 
     def criar_janela(self):
         pygame.init()
@@ -47,7 +47,7 @@ class TetrizEnv(Env):
         self.state = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos.em_fila(action)
         new_state_return = self.jogo.tabuleiro.model_ajust()
-        new_state_return = np.stack((new_state_return, self.state_anterior), axis=0)
+        new_state_return = new_state_return
         return new_state_return, reward, done, {}
 
     def reset(self, process_events: bool):
@@ -55,4 +55,4 @@ class TetrizEnv(Env):
             self.process_events()
         self.jogo: TetriZzz_Otimizado = TetriZzz_Otimizado(0*self.largura_dos_jogos, (0+1)*self.largura_dos_jogos, 0*self.altura_dos_jogos, (0+1)*self.altura_dos_jogos, self.janela)
         self.state = self.jogo.tabuleiro.tabuleiro
-        return np.stack((self.jogo.tabuleiro.model_ajust(), self.state_anterior), axis=0)
+        return self.jogo.tabuleiro.model_ajust()

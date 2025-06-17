@@ -1,3 +1,5 @@
+import numpy as np
+
 valor_borda = -1
 codigo_colidiu = "!"
 
@@ -13,7 +15,7 @@ linhas_completas = 0
 punicao_minima = -2
 punicao_leve = -2
 punicao_alta = -2
-punicao_perdeu = -50
+punicao_perdeu = -100
 recompensa_pequena = 1
 recompensa_media = 1
 recompensa_linha_completa = 10
