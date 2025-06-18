@@ -19,19 +19,19 @@ class EpData:
         self.rewards.append(reward)
 
     def compute_total_reward(self):
-        return sum(self.rewards)
+        return self.rewards
 
     def get_training_data(self):
         total_reward = self.compute_total_reward()
         X = torch.stack(self.states)
         y = torch.tensor(self.actions)
-        rewards = torch.full((len(self.states),), total_reward, dtype=torch.float32)
+        rewards = torch.tensor(total_reward, dtype=torch.float32)
         return X, y, rewards
     
 env = TetrizEnv(janela=True)
 model = DQN(1, env.action_space.n, env.jogo.tabuleiro.tabuleiro.shape)
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
-loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.RMSprop(model.parameters(), lr=1e-4, momentum=0.95)
+# loss_fn = nn.CrossEntropyLoss()
 global mutex, stop_threads, epsodes
 epsodes = 0
 stop_threads = False
@@ -97,8 +97,11 @@ def trainer(model, eplist):
             logits = model(x_i) 
             probs = F.softmax(logits, dim=1) 
             log_probs = torch.log(probs + 1e-8)
-            selected_log_prob = log_probs[0, y_i.item()]
-            loss = -selected_log_prob * r_i
+            action = y_i.item() if y_i.dim() > 0 else y_i
+            selected_log_prob = log_probs[0, action]
+            baseline = R.mean()
+            loss = -(selected_log_prob * (r_i - baseline))
+
 
             optimizer.zero_grad()
             loss.backward()
