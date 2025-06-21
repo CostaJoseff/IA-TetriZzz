@@ -64,6 +64,8 @@ class TetriZzz_Otimizado:
     self.desenhar_peca_atual()
     if recompensa_reiniciou == punicao_perdeu:
       self.perdeu = True
+      self.redesenhar_tudo()
+      return punicao_perdeu
     
     self.redesenhar_tudo()
 
@@ -88,6 +90,7 @@ class TetriZzz_Otimizado:
     if recompensa_reiniciou == punicao_perdeu:
       self.perdeu = True
       self.redesenhar_tudo()
+      return punicao_perdeu
     elif recompensa_reiniciou > 0:
       self.redesenhar_tudo()
 

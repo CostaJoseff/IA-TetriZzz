@@ -73,7 +73,7 @@ class Engine:
     if self.janela:
       block = pygame.Rect(self.x_i+(self.largura_do_bloco*vetor2[1]), self.y_i+(self.altura_do_bloco*vetor2[0]), self.largura_do_bloco, self.altura_do_bloco)
       pygame.draw.rect(self.janela, [self.random_background, self.random_background, self.random_background], block)
-      pygame.display.update()
+      # pygame.display.update()
 
   def desenhar_ponto(self):
     if self.janela:

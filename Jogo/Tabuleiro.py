@@ -162,7 +162,7 @@ class Tabuleiro:
     return [self.linha_atual, self.coluna_atual]
 
   def reiniciou(self, tab_anterior=None, tab_atual=None):
-    if self.linha_atual - self.peca_atual.maior_bloco() - 1 <= self.altura_limite: return punicao_perdeu
+    if self.linha_atual - 2 <= self.altura_limite: return punicao_perdeu
 
     threads = []
 
@@ -198,7 +198,7 @@ class Tabuleiro:
       thr.join()
 
     recompensa_final = 0
-    if bem_posicionado or bem_compactado or recompensa_verificacoes > 5:
+    if (bem_posicionado and bem_compactado) or recompensa_verificacoes > 5:
       recompensa_final += recompensa_verificacoes + punicao_altura - novos_espacos_trancados
     else:
       recompensa_final = -3 - novos_espacos_trancados

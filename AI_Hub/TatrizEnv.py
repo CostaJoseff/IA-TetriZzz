@@ -44,6 +44,8 @@ class TetrizEnv(Env):
         self.state_anterior = self.jogo.tabuleiro.tabuleiro
         reward = self.jogo.acao(action)
         done = self.jogo.perdeu
+        if done:
+            reward = -100
         self.state = self.jogo.tabuleiro.tabuleiro
         self.fila_de_movimentos.em_fila(action)
         new_state_return = self.jogo.tabuleiro.model_ajust()
