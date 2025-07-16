@@ -107,20 +107,14 @@ class Tabuleiro:
       tab = self.tabuleiro.copy()
     else:
       tab = input.copy()
-      
-    # self.peca_atual.model_ajust()
-    # for l in range(self.peca_atual.altura() - 1, -1, -1):
-    #   for c in range(self.peca_atual.largura()):
-    #     if self.peca_atual.peca_atual[l][c] != 0:
-    #       if self.peca_atual.peca_atual[l][c] != 99:
-    #         tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 1# self.peca_atual.peca_atual[l][c]
-    #       else:
-    #         tab[self.linha_atual - (self.peca_atual.altura() - 1 - l)][self.coluna_atual + c] = 1# self.peca_atual.peca_atual_modelo[l][c]
+
     for l in range(len(tab)):
       for c in range(len(tab[0])):
-        tab[l][c] = 1 if tab[l][c] > 0 else tab[l][c]
+        tab[l][c] = 1 if tab[l][c] > 0 and tab[l][c] != self.peca_atual.id else tab[l][c]
 
     tab: np.ndarray = np.array(tab)
+    if input is None:
+      self.tabuleiro = tab
     return tab
 
   def posicionar_peca(self):
@@ -139,11 +133,14 @@ class Tabuleiro:
           return False
     return True
 
-  def calcular_alturas(self):
+  def calcular_alturas(self, tab=None):
+    if tab is None:
+      tab = self.tabuleiro
+
     maiores_alturas = [0] * self.largura
     for c in range(self.tamanho_borda, self.tamanho_borda+self.largura):
       for l in range(self.espaco_adicional_cima ,self.primeira_linha):
-        if self.tabuleiro[l][c] != 0:
+        if tab[l][c] != 0:
           maiores_alturas[c-self.tamanho_borda] = self.altura + self.espaco_adicional_cima - l
           break
         elif l == self.primeira_linha-1:
@@ -178,18 +175,18 @@ class Tabuleiro:
     thread.start()
     threads.append(thread)
 
-    global bem_posicionado
-    global punicao_altura
-    bem_posicionado = None
-    punicao_altura = 0
-    thread = Thread(target=self.verificar_bem_posicionado)
-    thread.start()
-    threads.append(thread)
+    # global bem_posicionado
+    # global punicao_altura
+    # bem_posicionado = None
+    # punicao_altura = 0
+    # thread = Thread(target=self.verificar_bem_posicionado)
+    # thread.start()
+    # threads.append(thread)
 
     
-    global bem_compactado
-    bem_compactado = None
-    thread = Thread(target=self.analizar_tabuleiro)
+    global bumpness_score
+    bumpness_score = 0
+    thread = Thread(target=self.analizar_tabuleiro, args=[tab_anterior, tab_atual])
     thread.start()
     threads.append(thread)
 
@@ -198,10 +195,10 @@ class Tabuleiro:
       thr.join()
 
     recompensa_final = 0
-    if (bem_posicionado and bem_compactado) or recompensa_verificacoes > 5:
-      recompensa_final += recompensa_verificacoes + punicao_altura - novos_espacos_trancados
-    else:
-      recompensa_final = -3 - novos_espacos_trancados
+    # if (bumpness_score >= 0) or recompensa_verificacoes > 5:
+    recompensa_final += recompensa_verificacoes - novos_espacos_trancados + bumpness_score + (-3 if not ((bumpness_score >= 0) or recompensa_verificacoes > 5) else 0)
+    # else:
+    #   recompensa_final = -3 - novos_espacos_trancados + bumpness_score
 
     self.peca_atual.nova_peca()
     self.coluna_atual = self.tamanho_borda + 4
@@ -234,10 +231,7 @@ class Tabuleiro:
     mascara = contagem_anterior > 0
     diferenca = contagem_atual[mascara] - contagem_anterior[mascara]
 
-    if np.any(diferenca > 0):
-      return 1
-    else:
-      return 0
+    return np.sum(diferenca)
 
   def verificar_linhas(self, l=None, iteracoes=0):
     if l == None:
@@ -261,25 +255,17 @@ class Tabuleiro:
     for i in range(self.largura):
       self.maiores_alturas[i] -= 1
 
-  def analizar_tabuleiro(self):
-    mascara_de_pecas = (self.tabuleiro > 0).astype(np.uint8)
-    num_labels, labels = cv2.connectedComponents(mascara_de_pecas)
-    areas_das_pecas = {i: np.sum(labels == i) for i in range(1, num_labels)}
-
-    coords = np.column_stack(np.where(mascara_de_pecas > 0))
-    y_min, x_min = coords.min(axis=0)
-    y_max, x_max = coords.max(axis=0)
-
-    bounding_box_area = (y_max - y_min + 1) * (x_max - x_min + 1)
-
-    areas_das_pecas_total = sum(areas_das_pecas.values())
-
-    compactacao = areas_das_pecas_total / bounding_box_area
-
-    bem_posicionado = compactacao-self.compactacao >= 0#  or (variance_x-self.var_x >= 0 and variance_y-self.var_y >= 0)
-
-    self.compactacao = compactacao
-    return bem_posicionado
+  def analizar_tabuleiro(self, tab_anterior, tab_atual):
+    global bumpness_score
+    try:
+      alturas_anterior = self.calcular_alturas(tab_anterior)
+      alturas_atual = self.calcular_alturas(tab_atual)
+      bumpness_anterior_score = sum(abs(alturas_anterior[i] - alturas_anterior[i+1]) for i in range(len(alturas_anterior)-1))
+      bumpness_atual_score = sum(abs(alturas_atual[i] - alturas_atual[i+1]) for i in range(len(alturas_atual)-1))
+      delta = bumpness_atual_score - bumpness_anterior_score
+      bumpness_score = -delta if delta is not None else 0
+    except:
+      bumpness_score = 0
   
   def novos_espaços_trancados(self):
     global novos_espacos_trancados

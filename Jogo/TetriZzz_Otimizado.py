@@ -26,13 +26,13 @@ class TetriZzz_Otimizado:
     if acao == 0:
       return self.w()
     elif acao == 1:
-        return self.a()
+      return self.a()
     elif acao == 2:
-        return self.s()
+      return self.s()
     elif acao == 3:
-        return self.d()
+      return self.d()
     elif acao == 4:
-        return self.espaco()
+      return self.espaco()
 
 
   def a(self):
@@ -69,8 +69,9 @@ class TetriZzz_Otimizado:
     
     self.redesenhar_tudo()
 
-    punish = compute_punishment(tab_anterior, tab_atual)
-    recompensa_final = punish if punish == -1 else (recompensa + recompensa_reiniciou)
+    # punish = compute_punishment(tab_anterior, tab_atual)
+    # recompensa_final = punish if punish == -1 else (recompensa + recompensa_reiniciou)
+    recompensa_final = recompensa_reiniciou + recompensa
     self.tabuleiro.pontos += recompensa_final
     if self.engine:
       self.engine.desenhar_ponto()
@@ -94,8 +95,9 @@ class TetriZzz_Otimizado:
     elif recompensa_reiniciou > 0:
       self.redesenhar_tudo()
 
-    punish = compute_punishment(tab_anterior, tab_atual)
-    recompensa_final = punish if punish == -1 else (recompensa + recompensa_reiniciou)
+    # punish = compute_punishment(tab_anterior, tab_atual)
+    # recompensa_final = punish if punish == -1 else (recompensa + recompensa_reiniciou)
+    recompensa_final = recompensa_reiniciou + recompensa
     self.tabuleiro.pontos += recompensa_final
     if self.engine:
       self.engine.desenhar_ponto()

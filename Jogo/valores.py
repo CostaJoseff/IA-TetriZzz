@@ -12,10 +12,10 @@ tamanho_borda = 3
 
 linhas_completas = 0
 
-punicao_minima = -2
-punicao_leve = -2
-punicao_alta = -2
-punicao_perdeu = -100
-recompensa_pequena = 1
-recompensa_media = 5
-recompensa_linha_completa = 10
+punicao_minima = -0.01
+punicao_leve = -0.1
+punicao_alta = -0.6
+punicao_perdeu = -1
+recompensa_pequena = 0.1
+recompensa_media = 0.5
+recompensa_linha_completa = 5
